@@ -1,0 +1,162 @@
+
+/* Set 1 Question 1 */
+
+SELECT   f.title filmtitle,
+         c.name catname,
+         COUNT(*) rcount
+FROM     category c
+JOIN     film_category fc
+ON       c.category_id = fc.category_id
+JOIN     film f
+ON       fc.film_id = f.film_id
+JOIN     inventory i
+ON       i.film_id = f.film_id
+JOIN     rental r
+ON       r.inventory_id = i.inventory_id
+WHERE    c.name = 'Animation'  or
+         c.name = 'Children'   or
+         c.name = 'Classics'   or
+         c.name = 'Comedy'     or
+         c.name = 'Family'     or
+         c.name = 'Music'
+GROUP BY 1,2
+ORDER BY 2,1;
+
+----------------------------------------------------------------------------------------------------------------
+
+/* Set 1 Question 2 */
+
+SELECT   f.title filmtitle,
+         c.name catname,
+         f.rental_duration rdur,
+         NTILE(4) OVER(ORDER BY f.rental_duration) AS quartile
+FROM     category c
+JOIN     film_category fc
+ON       c.category_id = fc.category_id
+JOIN     film f
+ON       fc.film_id = f.film_id
+WHERE    c.name = 'Animation' or
+         c.name = 'Children'  or
+         c.name = 'Classics'  or
+         c.name = 'Comedy'    or
+         c.name = 'Family'    or
+         c.name = 'Music'
+ORDER BY 4,3
+
+----------------------------------------------------------------------------------------------------------------
+
+/* Set 1 Question 3 */
+
+SELECT catname, quartile, COUNT(*)
+FROM
+(SELECT   f.title filmtitle,
+          c.name catname,
+          f.rental_duration rdur,
+          NTILE(4) OVER(ORDER BY f.rental_duration) AS quartile
+ FROM     category c
+ JOIN     film_category fc
+ ON       c.category_id = fc.category_id
+ JOIN     film f
+ ON       fc.film_id = f.film_id
+ WHERE    c.name = 'Animation' or
+          c.name = 'Children'  or
+          c.name = 'Classics'  or
+          c.name = 'Comedy'    or
+          c.name = 'Family'    or
+          c.name = 'Music') AS subq1
+GROUP BY 1, 2
+ORDER BY 1, 2
+
+----------------------------------------------------------------------------------------------------------------
+
+/* Set 2 Question 1 */
+
+SELECT DATE_PART('Month', r.rental_date) AS Rental_month,
+	     DATE_PART('Year', r.rental_date) AS Rental_year,
+	     str.store_id as Store_id,
+       COUNT(*) AS rcounts
+FROM Store str
+JOIN Staff stf
+ON str.store_id = stf.store_id
+JOIN rental r
+ON stf.staff_id = r.staff_id
+GROUP BY 1,2,3
+ORDER BY 4 DESC
+
+----------------------------------------------------------------------------------------------------------------
+
+/* Set 2 Question 2 */
+
+WITH subq1 AS (
+	SELECT 	custid,
+		      DATE_TRUNC('month', pay_date) AS pay_month,
+		      fullName,
+		      COUNT(pay_date) AS paycount_in_a_month,
+		      SUM(amount) AS totalpay_amount
+	FROM (
+		SELECT 	cust.customer_id AS custid,
+			      p.payment_date AS pay_date,
+			      cust.first_name AS firstname,
+			      cust.last_name AS lastname,
+			      cust.first_name || ' ' || cust.last_name AS fullname,
+			      p.amount AS amount
+		FROM    customer cust
+    JOIN    payment p
+    ON      cust.customer_id = p.customer_id) AS subq
+		GROUP BY 1,2,3
+		ORDER BY 3),
+
+	subq2 AS (
+		SELECT 	custid,
+			      fullName,
+			      SUM(totalpay_amount)
+		FROM subq1
+		GROUP BY 1,2
+		ORDER BY 3 DESC
+		LIMIT 10)
+
+SELECT 	subq1.pay_month,
+		    subq1.fullname,
+		    subq1.paycount_in_a_month,
+		    subq1.totalpay_amount
+	FROM subq1, subq2
+	WHERE subq1.custid = subq2.custid;
+
+----------------------------------------------------------------------------------------------------------------
+
+/* Set 2 Question 3 */
+
+  WITH subq1 AS (
+  	SELECT 	custid,
+  		      DATE_TRUNC('month', pay_date) AS pay_month,
+  		      fullName,
+  		      SUM(amount) AS totalpay_amount
+  	FROM (
+  		SELECT 	cust.customer_id AS custid,
+  			      p.payment_date AS pay_date,
+  			      cust.first_name AS firstname,
+  			      cust.last_name AS lastname,
+  			      cust.first_name || ' ' || cust.last_name AS fullname,
+  			      p.amount AS amount
+  		FROM    customer cust
+      JOIN    payment p
+      ON      cust.customer_id = p.customer_id) AS subq
+  		GROUP BY 1,2,3
+  		ORDER BY 3),
+
+  	subq2 AS (
+  		SELECT 	custid,
+  			      fullName,
+  			      SUM(totalpay_amount)
+  		FROM subq1
+  		GROUP BY 1,2
+  		ORDER BY 3 DESC
+  		LIMIT 10)
+
+  SELECT 	subq1.pay_month,
+  		    subq1.fullname,
+  		    subq1.totalpay_amount,
+          subq1.totalpay_amount - LAG(subq1.totalpay_amount) OVER(ORDER BY subq1.fullname) AS diff
+  	FROM subq1, subq2
+  	WHERE subq1.custid = subq2.custid
+    AND sub1.fullname = 'Eleanor Hunt'
